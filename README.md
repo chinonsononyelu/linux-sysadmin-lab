@@ -17,7 +17,7 @@ Administrator (RHCSA) exam, passed in February 2026.
 | OS           | RHEL 9.8                                                                       | Ubuntu 26.04 LTS                                                                |
 | Hostname     | rhel-node                                                                      | ubuntu-node                                                                     |
 | Virtualization | UTM 4.7.4                                                      | UTM 4.7.4                                                         |
-| Host OS      | Mac OS                                                                      | Mac OS                                                                      |
+| Host OS      | mac OS                                                                      | mac OS                                                                      |
 | Resources    | 2 vCPUs, 4 GB RAM, 40 GB                                                       | 2 vCPUs, 4 GB RAM, 40 GB                                                        |
 | Primary Role | RHCSA practice, firewalld, systemd, SELinux, user mgmt, centralized log server | Bash automation, monitoring stack, Docker, Ansible control node, log forwarding |
 
@@ -33,12 +33,110 @@ static IPs. A separate NAT adapter provides internet access for package download
 | enp0s2   | Host-Only        | Lab communication (192.168.70.x)|
 | enp0s1   | Shared/NAT       | Internet access for downloads  |
 
-Why I chose a dual Network configuration in UTM:
+Why I choose a dual Network configuration in UTM:
 
 Host-only interface was chosen to isolate the lab environment from the physical network, creating a secure sandbox that prevents unintended traffic from escaping or entering my VMs.  Shared Network (NAT) Interface was chosen to provide a safe, oneway exit to the internet. It allows my VMs to download necessary updates and packages.
 
 Lastly I avoided Bridged Network because if used, it would assign my VMs an IP address directly from whatever physical network I am connected to. Since I sometimes work on this project from public network like library or coffee shops, Bridged network could expose my VMs to other users on that public Wi-Fi network. At home, it could also lead to IP address conflicts.
 
 
+
+---
+
+## Table of Contents
+
+1. [VM Setup](#1-vm-setup)
+
+
+---
+
+## 1. VM Setup
+
+### UTM Network Configuration
+
+Both VMs are attached to the same Internal Network in UTM:
+
+- VM1 (rhel-node): Host-Only `enp0s2`, static IP `192.168.70.42`
+- VM2 (ubuntu-node): Host-Only `enp0s2`, static IP `192.168.70.40`
+
+A second NAT adapter is added to each VM for internet access during package
+installation. 
+
+### RHEL Node Setup
+
+Download RHEL 9 ISO via Red Hat's free Developer Program at
+[developers.redhat.com](https://developers.redhat.com).
+
+> **Version note:** Use the DVD ISO, not the Boot ISO. The DVD ISO is self-contained
+> and does not require internet during installation. The Boot ISO requires network
+> access to download packages mid-install which is unreliable in a lab environment.
+> Use the aarch64 architecture version.
+
+After installation, register and update:
+
+```bash
+sudo subscription-manager register --username <username> --auto-attach
+sudo dnf update -y
+sudo dnf install git curl wget net-tools tree firewalld -y
+```
+
+Set static IP and hostname:
+
+```bash
+sudo hostnamectl set-hostname rhel-node
+
+# Run: ip a  to confirm your interface name before running nmcli
+sudo nmcli con mod "enp0s2" ipv4.addresses 192.168.70.42/24 ipv4.method manual
+sudo nmcli con up "enp0s2"
+```
+
+> **Interface naming note:** The interface name varies by VM configuration.
+> Run `ip a` first to identify the correct name before running nmcli commands.
+> In this lab the interface was `enp0s2`.
+
+### Ubuntu Node Setup
+
+Download Ubuntu 26.04 LTS Server ISO from [ubuntu.com](https://ubuntu.com/download/server).
+
+> **Version note:** Ubuntu 26.04 LTS works identically to 24.04 for all lab
+> commands. Use Server ISO not Desktop. Server has lower memory overhead and
+> is more representative of enterprise Linux deployments.
+
+After installation:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install git curl wget net-tools tree ufw fail2ban -y
+sudo hostnamectl set-hostname ubuntu-node
+```
+
+Edit `/etc/netplan/01-netcfg.yaml`:
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    enp0s2:
+      addresses: [192.168.70.40/24]
+      nameservers:
+        addresses: [8.8.8.8]
+```
+
+```bash
+sudo netplan apply
+```
+
+### Verify Node Connectivity
+
+```bash
+# From rhel-node
+ping -c 3 192.168.70.42
+
+# From ubuntu-node
+ping -c 3 192.168.70.40
+```
+
+![rhel-node ip a and successful ping to ubuntu-node](Screenshots/04-2-ubuntu-network-test-ping.png)
+![ubuntu-node ip a and successful ping to rhel-node](Screenshots/04-1-rhel-network-test-ping.png)
 
 ---
