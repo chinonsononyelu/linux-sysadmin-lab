@@ -46,6 +46,8 @@ Lastly I avoided Bridged Network because if used, it would assign my VMs an IP a
 ## Table of Contents
 
 1. [VM Setup](#1-vm-setup)
+2. [User & Group Management](#2-user--group-management)
+3. 
 
 
 ---
@@ -138,5 +140,70 @@ ping -c 3 192.168.70.40
 
 ![rhel-node ip a and successful ping to ubuntu-node](Screenshots/04-2-ubuntu-network-test-ping.png)
 ![ubuntu-node ip a and successful ping to rhel-node](Screenshots/04-1-rhel-network-test-ping.png)
+
+---
+
+## 2. User & Group Management
+
+Performed on both nodes. RHEL and Ubuntu use identical `useradd`/`groupadd` syntax.
+
+> **Important:** The primary user account (cnonyelu) & (kcnonyelu) is created during OS installation
+> and already exists. Do not attempt to recreate it with useradd. Add it to groups
+> using usermod instead. Only mike and celina need to be created fresh.
+
+### Create Groups
+
+```bash
+sudo groupadd sysadmins
+sudo groupadd developers
+sudo groupadd auditors
+```
+
+### Create and Assign Users
+
+```bash
+# alice already exists from OS installation, add to sysadmins group only
+sudo usermod -aG sysadmins cnonyelu
+
+# bob and carol do not exist, create them normally
+sudo useradd -m -s /bin/bash -G developers mike
+sudo useradd -m -s /bin/bash -G auditors celina
+
+sudo passwd mike
+sudo passwd celina
+```
+
+> **RHEL note:** `useradd` on RHEL does not create a home directory by default
+> unless `-m` is explicitly passed. Always include `-m` on RHEL.
+
+### Set Password Aging Policies
+
+```bash
+sudo chage -M 90 -m 7 -W 14 cnonyelu
+sudo chage -M 90 -m 7 -W 14 mike
+sudo chage -M 90 -m 7 -W 14 celina
+```
+
+### Verify User Configuration
+
+```bash
+id cnonyelu
+groups cnonyelu
+sudo chage -l cnonyelu
+```
+
+![id and chage -l on rhel-node confirming group membership and password policy](Screenshots/06-1-rhel-user-managment.png)
+![id and chage -l on ubuntu-node](Screenshots/06-2-ubuntu-user-managment.png)
+
+### Lock and Unlock Accounts
+
+```bash
+sudo usermod -L mike
+sudo passwd -S mike
+sudo usermod -U mike
+sudo passwd -S mike
+```
+
+![Lock and unlock bob account with status verification](Screenshots/06-rhel-user-managment.png)
 
 ---
