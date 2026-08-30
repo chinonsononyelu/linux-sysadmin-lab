@@ -47,7 +47,7 @@ Lastly I avoided Bridged Network because if used, it would assign my VMs an IP a
 
 1. [VM Setup](#1-vm-setup)
 2. [User & Group Management](#2-user--group-management)
-3. 
+3. [SSH Hardening](#3-ssh-hardening)
 
 
 ---
@@ -205,5 +205,108 @@ sudo passwd -S mike
 ```
 
 ![Lock and unlock bob account with status verification](Screenshots/06-rhel-user-managment.png)
+
+---
+
+## 3. SSH Hardening
+
+SSH was hardened on both nodes with key-based authentication and a custom port.
+Cross-node SSH was configured to simulate a real multi-server environment.
+
+### Generate SSH Key Pair
+
+```bash
+ssh-keygen -t ed25519 -C "thelab-key"
+```
+
+### Copy Public Keys Between Nodes
+
+```bash
+# From rhel-node to ubuntu-node
+ssh-copy-id -p 22 kcnonyelu@192.168.70.40
+
+# Add ubuntu-node's public key to rhel-node authorized_keys manually
+# On ubuntu-node:
+cat ~/.ssh/id_ed25519.pub
+# Copy output, then on rhel-node:
+echo "paste-ubuntu-public-key-here" >> ~/.ssh/authorized_keys
+```
+
+> Add your host machine's public key to both nodes' authorized_keys
+> to enable SSH tunnel access from the host.
+
+### Harden SSH Configuration
+
+```bash
+sudo vim /etc/ssh/sshd_config
+```
+
+```
+PermitRootLogin no
+PasswordAuthentication no
+MaxAuthTries 3
+ClientAliveInterval 300
+ClientAliveCountMax 0
+Port 2222
+AllowUsers cnonyelu
+```
+
+```bash
+# RHEL
+sudo systemctl restart sshd
+
+# Ubuntu
+sudo systemctl restart ssh
+```
+
+> **RHEL SELinux note:** Changing the SSH port requires updating SELinux port
+> policy before the service will bind to the new port:
+
+```bash
+sudo semanage port -a -t ssh_port_t -p tcp 2222
+sudo firewall-cmd --permanent --add-port=2222/tcp
+sudo firewall-cmd --reload
+```
+
+![rhel-node SSH into ubuntu-node on port 2222](Screenshots/07-ssh-hard.png)
+
+>**Ubuntu ssh.socket conflict: Ubuntu runs `ssh.socket` by default,
+which overrides the main configuration file and forces the system back to port 22.
+To aviod this conflict and make the system use our port 2222, we can
+completely turn off the socket system and activate traditional persistent service:
+
+```bash
+# Stop and disable conflicting services on Ubuntu
+sudo systemctl stop ssh.socket
+sudo systemctl disable ssh.socket
+sudo systemctl restart ssh
+
+```
+
+![ubuntu-node SSH into rhel-node, sshd.socket disabled](Screenshots/07-01-ssh-hard-u-r.png)
+
+### Configure fail2ban on Ubuntu Node
+
+```bash
+sudo vim /etc/fail2ban/jail.local
+```
+
+```ini
+[sshd]
+enabled = true
+port = 2222
+maxretry = 3
+bantime = 3600
+findtime = 600
+logpath = /var/log/auth.log
+```
+
+```bash
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+sudo fail2ban-client status sshd
+```
+
+![fail2ban status sshd showing active monitoring](Screenshots/08-fail2ban-config.png)
 
 ---
