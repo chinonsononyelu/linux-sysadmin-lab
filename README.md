@@ -48,7 +48,7 @@ Lastly I avoided Bridged Network because if used, it would assign my VMs an IP a
 1. [VM Setup](#1-vm-setup)
 2. [User & Group Management](#2-user--group-management)
 3. [SSH Hardening](#3-ssh-hardening)
-
+4. [Sudo Policy Configuration](#4-sudo-policy-configuration)
 
 ---
 
