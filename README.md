@@ -310,3 +310,47 @@ sudo fail2ban-client status sshd
 ![fail2ban status sshd showing active monitoring](Screenshots/08-fail2ban-config.png)
 
 ---
+
+## 4. Sudo Policy Configuration
+
+Perform on both nodes.
+
+### Configure Group-Based Sudo Policies
+
+Always use `visudo` to prevent syntax errors:
+
+```bash
+sudo visudo
+```
+
+Add at the bottom:
+
+```
+# sysadmins - full sudo access
+%sysadmins ALL=(ALL:ALL) ALL
+
+# developers - can restart application services only
+%developers ALL=(ALL) NOPASSWD: /bin/systemctl restart cakeapp.service
+
+# auditors - read-only commands only
+%auditors ALL=(ALL) NOPASSWD: /bin/cat, /bin/ls, /usr/bin/journalctl
+```
+
+### Create Drop-In Sudoers Files
+
+```bash
+sudo visudo -f /etc/sudoers.d/sysadmins
+sudo visudo -f /etc/sudoers.d/developers
+sudo visudo -f /etc/sudoers.d/auditors
+```
+
+### Verify Sudo Permissions
+
+```bash
+sudo -l -U cnonyelu
+```
+
+![visudo group policies configured on rhel-node](Screenshots/sudo-policy-rhel.png)
+
+
+---
